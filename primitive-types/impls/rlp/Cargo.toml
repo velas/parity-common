@@ -8,7 +8,7 @@ description = "RLP serialization support for uint and fixed hash."
 edition = "2018"
 
 [dependencies]
-rlp = { version = "0.5", path = "../../../rlp", default-features = false }
+rlp = { version = "0.5", default-features = false }
 
 [features]
 default = ["std"]
