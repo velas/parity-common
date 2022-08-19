@@ -24,9 +24,9 @@
 /// ```
 /// use fixed_hash::construct_fixed_hash;
 /// construct_fixed_hash!{
-/// 	/// My unformatted 160 bytes sized hash type.
-/// 	#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-/// 	pub struct H160(20);
+///     /// My unformatted 160 bytes sized hash type.
+///     #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+///     pub struct H160(20);
 /// }
 /// assert_eq!(std::mem::size_of::<H160>(), 20);
 /// ```
@@ -274,7 +274,6 @@ macro_rules! construct_fixed_hash {
 		impl $crate::core_::hash::Hash for $name {
 			fn hash<H>(&self, state: &mut H) where H: $crate::core_::hash::Hasher {
 				state.write(&self.0);
-				state.finish();
 			}
 		}
 
@@ -595,7 +594,7 @@ macro_rules! impl_rustc_hex_for_fixed_hash {
 					*byte = iter.next().ok_or(Self::Err::InvalidHexLength)??;
 				}
 				if iter.next().is_some() {
-					return Err(Self::Err::InvalidHexLength);
+					return Err(Self::Err::InvalidHexLength)
 				}
 				Ok(result)
 			}
@@ -665,7 +664,7 @@ macro_rules! impl_arbitrary_for_fixed_hash {
 #[doc(hidden)]
 macro_rules! impl_arbitrary_for_fixed_hash {
 	( $name:ident ) => {
-		impl $crate::arbitrary::Arbitrary for $name {
+		impl $crate::arbitrary::Arbitrary<'_> for $name {
 			fn arbitrary(u: &mut $crate::arbitrary::Unstructured<'_>) -> $crate::arbitrary::Result<Self> {
 				let mut res = Self::zero();
 				u.fill_buffer(&mut res.0)?;
@@ -778,7 +777,8 @@ macro_rules! impl_fixed_hash_conversions {
 				);
 
 				let mut ret = $small_ty::zero();
-				ret.as_bytes_mut().copy_from_slice(&value[(large_ty_size - small_ty_size)..large_ty_size]);
+				ret.as_bytes_mut()
+					.copy_from_slice(&value[(large_ty_size - small_ty_size)..large_ty_size]);
 				ret
 			}
 		}

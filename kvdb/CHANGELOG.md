@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog].
 
 ## [Unreleased]
 ### Breaking
+- Removed `fn restore` from `KeyValueDB` trait. [662](https://github.com/paritytech/parity-common/pull/662)
+- Streamlined API. [661](https://github.com/paritytech/parity-common/pull/661)
+  - `fn get_by_prefix` return type changed to `io::Result<Option<DBValue>>`
+  - `fn has_prefix` return type changed to `io::Result<bool>`
+  - Iterator item changed to `io::Result<DBKeyValue>`
+
+## [0.11.0] - 2022-02-04
+### Breaking
+- Migrated to 2021 edition, enforcing MSRV of `1.56.1`. [#601](https://github.com/paritytech/parity-common/pull/601)
+- Updated `parity-util-mem` to 0.11. [#623](https://github.com/paritytech/parity-common/pull/623)
+
+## [0.10.0] - 2021-07-02
+### Breaking
+- Updated `parity-util-mem` to 0.10. [#556](https://github.com/paritytech/parity-common/pull/556)
+
+## [0.9.0] - 2021-01-27
+### Breaking
+- Updated `parity-util-mem` to 0.9. [#510](https://github.com/paritytech/parity-common/pull/510)
+
+## [0.8.0] - 2021-01-05
+### Breaking
 - Updated `parity-util-mem` to 0.8. [#470](https://github.com/paritytech/parity-common/pull/470)
 
 ## [0.7.0] - 2020-06-24

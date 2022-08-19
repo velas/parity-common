@@ -20,7 +20,7 @@ mod fp_conversion;
 use core::convert::TryFrom;
 use fixed_hash::{construct_fixed_hash, impl_fixed_hash_conversions};
 #[cfg(feature = "scale-info")]
-use scale_info::TypeInfo;
+use scale_info_crate::TypeInfo;
 use uint::{construct_uint, uint_full_mul_reg};
 
 /// Error type for conversion.
@@ -139,9 +139,18 @@ mod borsh {
 
 impl_fixed_hash_conversions!(H256, H160);
 
+impl U128 {
+	/// Multiplies two 128-bit integers to produce full 256-bit integer.
+	/// Overflow is not possible.
+	#[inline(always)]
+	pub fn full_mul(self, other: U128) -> U256 {
+		U256(uint_full_mul_reg!(U128, 2, self, other))
+	}
+}
+
 impl U256 {
-	/// Multiplies two 256-bit integers to produce full 512-bit integer
-	/// No overflow possible
+	/// Multiplies two 256-bit integers to produce full 512-bit integer.
+	/// Overflow is not possible.
 	#[inline(always)]
 	pub fn full_mul(self, other: U256) -> U512 {
 		U512(uint_full_mul_reg!(U256, 4, self, other))
@@ -166,7 +175,7 @@ impl TryFrom<U256> for U128 {
 	fn try_from(value: U256) -> Result<U128, Error> {
 		let U256(ref arr) = value;
 		if arr[2] | arr[3] != 0 {
-			return Err(Error::Overflow);
+			return Err(Error::Overflow)
 		}
 		let mut ret = [0; 2];
 		ret[0] = arr[0];
@@ -181,7 +190,7 @@ impl TryFrom<U512> for U256 {
 	fn try_from(value: U512) -> Result<U256, Error> {
 		let U512(ref arr) = value;
 		if arr[4] | arr[5] | arr[6] | arr[7] != 0 {
-			return Err(Error::Overflow);
+			return Err(Error::Overflow)
 		}
 		let mut ret = [0; 4];
 		ret[0] = arr[0];
@@ -198,7 +207,7 @@ impl TryFrom<U512> for U128 {
 	fn try_from(value: U512) -> Result<U128, Error> {
 		let U512(ref arr) = value;
 		if arr[2] | arr[3] | arr[4] | arr[5] | arr[6] | arr[7] != 0 {
-			return Err(Error::Overflow);
+			return Err(Error::Overflow)
 		}
 		let mut ret = [0; 2];
 		ret[0] = arr[0];
@@ -245,7 +254,7 @@ impl<'a> TryFrom<&'a U512> for U256 {
 	fn try_from(value: &'a U512) -> Result<U256, Error> {
 		let U512(ref arr) = *value;
 		if arr[4] | arr[5] | arr[6] | arr[7] != 0 {
-			return Err(Error::Overflow);
+			return Err(Error::Overflow)
 		}
 		let mut ret = [0; 4];
 		ret[0] = arr[0];

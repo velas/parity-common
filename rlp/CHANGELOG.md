@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog].
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
 ## [Unreleased]
+- Migrated to 2021 edition, enforcing MSRV of `1.56.1`. [#601](https://github.com/paritytech/parity-common/pull/601)
+- Add optional `derive` feature. [#613](https://github.com/paritytech/parity-common/pull/613)
+
+## [0.5.1] - 2021-07-30
+- Fix rlp encoding/decoding for bool. [#572](https://github.com/paritytech/parity-common/pull/572)
+
+## [0.5.0] - 2021-01-05
 ### Breaking
 - Use BytesMut for `RlpStream`'s backing buffer. [#453](https://github.com/paritytech/parity-common/pull/453)
 
