@@ -5,8 +5,37 @@ The format is based on [Keep a Changelog].
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
 ## [Unreleased]
-- Updated dlmalloc to 0.2.1. [#452](https://github.com/paritytech/parity-common/pull/452)
 
+## [0.11.0] - 2022-02-04
+### Breaking
+- Migrated to 2021 edition, enforcing MSRV of `1.56.1`. [#601](https://github.com/paritytech/parity-common/pull/601)
+- Updated `primitive-types` to 0.11. [#623](https://github.com/paritytech/parity-common/pull/623)
+- Updated `ethereum-types` to 0.13. [#623](https://github.com/paritytech/parity-common/pull/623)
+- Updated `lru` to 0.7. [#595](https://github.com/paritytech/parity-common/pull/595)
+- Updated `parking_lot` to 0.12. [#619](https://github.com/paritytech/parity-common/pull/619)
+- Updated `hashbrown` to 0.12. [#612](https://github.com/paritytech/parity-common/pull/612)
+
+## [0.10.2] - 2021-09-20
+- Switched from `jemallocator` to `tikv-jemallocator`. [#589](https://github.com/paritytech/parity-common/pull/589)
+
+## [0.10.1] - 2021-09-15
+- Added support for memory stats gathering, ported over from `polkadot`. [#588](https://github.com/paritytech/parity-common/pull/588)
+
+## [0.10.0] - 2021-07-02
+- Fixed `malloc_usable_size` for FreeBSD. [#553](https://github.com/paritytech/parity-common/pull/553)
+
+### Breaking
+- Updated `ethereum-types` to 0.12. [#556](https://github.com/paritytech/parity-common/pull/556)
+- Updated `primitive-types` to 0.10. [#556](https://github.com/paritytech/parity-common/pull/556)
+- Updated `hashbrown` to 0.11. [#533](https://github.com/paritytech/parity-common/pull/533)
+
+## [0.9.0] - 2021-01-27
+### Breaking
+- Updated `ethereum-types` to 0.11. [#510](https://github.com/paritytech/parity-common/pull/510)
+- Updated `primitive-types` to 0.9. [#510](https://github.com/paritytech/parity-common/pull/510)
+
+## [0.8.0] - 2021-01-05
+- Updated dlmalloc to 0.2.1. [#452](https://github.com/paritytech/parity-common/pull/452)
 ### Breaking
 - Updated `ethereum-types` to 0.10. [#463](https://github.com/paritytech/parity-common/pull/463)
 - Updated `parking_lot` to 0.11.1. [#470](https://github.com/paritytech/parity-common/pull/470)

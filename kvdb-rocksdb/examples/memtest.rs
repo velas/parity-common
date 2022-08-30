@@ -20,14 +20,16 @@
 use ethereum_types::H256;
 use keccak_hash::keccak;
 use kvdb_rocksdb::{Database, DatabaseConfig};
-use std::sync::{atomic::AtomicBool, atomic::Ordering as AtomicOrdering, Arc};
+use std::sync::{
+	atomic::{AtomicBool, Ordering as AtomicOrdering},
+	Arc,
+};
 use sysinfo::{get_current_pid, ProcessExt, System, SystemExt};
 
 const COLUMN_COUNT: u32 = 100;
 
 #[derive(Clone)]
-struct KeyValueSeed {
-	seed: H256,
+struct KeyValue {
 	key: H256,
 	val: H256,
 }
@@ -40,9 +42,9 @@ fn next(seed: H256) -> H256 {
 	keccak(&buf[..])
 }
 
-impl KeyValueSeed {
+impl KeyValue {
 	fn with_seed(seed: H256) -> Self {
-		KeyValueSeed { seed, key: next(seed), val: next(next(seed)) }
+		KeyValue { key: next(seed), val: next(next(seed)) }
 	}
 
 	fn new() -> Self {
@@ -50,7 +52,7 @@ impl KeyValueSeed {
 	}
 }
 
-impl Iterator for KeyValueSeed {
+impl Iterator for KeyValue {
 	type Item = (H256, H256);
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -67,7 +69,9 @@ fn proc_memory_usage() -> u64 {
 	let self_pid = get_current_pid().ok();
 	let memory = if let Some(self_pid) = self_pid {
 		if sys.refresh_process(self_pid) {
-			let proc = sys.get_process(self_pid).expect("Above refresh_process succeeds, this should be Some(), qed");
+			let proc = sys
+				.process(self_pid)
+				.expect("Above refresh_process succeeds, this should be Some(), qed");
 			proc.memory()
 		} else {
 			0
@@ -102,10 +106,10 @@ fn main() {
 	let dir = tempfile::Builder::new().prefix("rocksdb-example").tempdir().unwrap();
 
 	println!("Database is put in: {} (maybe check if it was deleted)", dir.path().to_string_lossy());
-	let db = Database::open(&config, &dir.path().to_string_lossy()).unwrap();
+	let db = Database::open(&config, &dir.path()).unwrap();
 
 	let mut step = 0;
-	let mut keyvalues = KeyValueSeed::new();
+	let mut keyvalues = KeyValue::new();
 	while !exit.load(AtomicOrdering::Relaxed) {
 		let col = step % 100;
 
@@ -133,7 +137,7 @@ fn main() {
 		}
 		db.write(transaction).expect("delete failed");
 
-		keyvalues = KeyValueSeed::with_seed(seed);
+		keyvalues = KeyValue::with_seed(seed);
 
 		if step % 10000 == 9999 {
 			let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");

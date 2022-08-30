@@ -5,6 +5,26 @@ The format is based on [Keep a Changelog].
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
 ## [Unreleased]
+
+## [0.12.1] - 2022-02-07
+- Updated `scale-info` to ">=1.0, <3". [#627](https://github.com/paritytech/parity-common/pull/627)
+
+## [0.12.0] - 2022-02-04
+### Breaking
+- Migrated to 2021 edition, enforcing MSRV of `1.56.1`. [#601](https://github.com/paritytech/parity-common/pull/601)
+- Updated `impl-codec` to 0.6. [#623](https://github.com/paritytech/parity-common/pull/623)
+
+## [0.11.1] - 2021-09-30
+- Combined `scale-info` feature into `codec`. [#593](https://github.com/paritytech/parity-common/pull/593)
+
+## [0.11.0] - 2021-01-27
+### Breaking
+- Updated `impl-codec` to 0.5. [#510](https://github.com/paritytech/parity-common/pull/510)
+
+### Potentially-breaking
+- `serialize` feature no longer pulls `std`. [#503](https://github.com/paritytech/parity-common/pull/503)
+
+## [0.10.0] - 2021-01-05
 ### Breaking
 - Updated `rlp` to 0.5. [#463](https://github.com/paritytech/parity-common/pull/463)
 

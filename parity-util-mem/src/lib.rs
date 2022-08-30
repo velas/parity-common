@@ -23,15 +23,24 @@ cfg_if::cfg_if! {
 	))] {
 		/// Global allocator
 		#[global_allocator]
-		pub static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+		pub static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+		mod memory_stats_jemalloc;
+		use memory_stats_jemalloc as memory_stats;
 	} else if #[cfg(feature = "dlmalloc-global")] {
 		/// Global allocator
 		#[global_allocator]
 		pub static ALLOC: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
+
+		mod memory_stats_noop;
+		use memory_stats_noop as memory_stats;
 	} else if #[cfg(feature = "weealloc-global")] {
 		/// Global allocator
 		#[global_allocator]
 		pub static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+		mod memory_stats_noop;
+		use memory_stats_noop as memory_stats;
 	} else if #[cfg(all(
 			feature = "mimalloc-global",
 			not(target_arch = "wasm32")
@@ -39,14 +48,22 @@ cfg_if::cfg_if! {
 		/// Global allocator
 		#[global_allocator]
 		pub static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+		mod memory_stats_noop;
+		use memory_stats_noop as memory_stats;
 	} else {
 		// default allocator used
+		mod memory_stats_noop;
+		use memory_stats_noop as memory_stats;
 	}
 }
 
 pub mod allocators;
 
-#[cfg(any(all(target_os = "macos", not(feature = "jemalloc-global"),), feature = "estimate-heapsize"))]
+#[cfg(any(
+	all(any(target_os = "macos", target_os = "ios"), not(feature = "jemalloc-global"),),
+	feature = "estimate-heapsize"
+))]
 pub mod sizeof;
 
 /// This is a copy of patched crate `malloc_size_of` as a module.
@@ -73,6 +90,48 @@ pub use parity_util_mem_derive::*;
 /// Structure can be anything that implements MallocSizeOf.
 pub fn malloc_size<T: MallocSizeOf + ?Sized>(t: &T) -> usize {
 	MallocSizeOf::size_of(t, &mut allocators::new_malloc_size_ops())
+}
+
+/// An error related to the memory stats gathering.
+#[derive(Clone, Debug)]
+pub struct MemoryStatsError(memory_stats::Error);
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for MemoryStatsError {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		self.0.fmt(fmt)
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for MemoryStatsError {}
+
+/// Snapshot of collected memory metrics.
+#[non_exhaustive]
+#[derive(Debug, Clone)]
+pub struct MemoryAllocationSnapshot {
+	/// Total resident memory, in bytes.
+	pub resident: u64,
+	/// Total allocated memory, in bytes.
+	pub allocated: u64,
+}
+
+/// Accessor to the allocator internals.
+#[derive(Clone)]
+pub struct MemoryAllocationTracker(self::memory_stats::MemoryAllocationTracker);
+
+impl MemoryAllocationTracker {
+	/// Create an instance of an allocation tracker.
+	pub fn new() -> Result<Self, MemoryStatsError> {
+		self::memory_stats::MemoryAllocationTracker::new()
+			.map(MemoryAllocationTracker)
+			.map_err(MemoryStatsError)
+	}
+
+	/// Create an allocation snapshot.
+	pub fn snapshot(&self) -> Result<MemoryAllocationSnapshot, MemoryStatsError> {
+		self.0.snapshot().map_err(MemoryStatsError)
+	}
 }
 
 #[cfg(feature = "std")]

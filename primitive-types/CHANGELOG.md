@@ -5,6 +5,33 @@ The format is based on [Keep a Changelog].
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
 ## [Unreleased]
+
+## [0.11.1] - 2022-02-07
+- Updated `scale-info` to ">=0.9, <3". [#627](https://github.com/paritytech/parity-common/pull/627)
+
+## [0.11.0] - 2022-02-04
+### Breaking
+- Migrated to 2021 edition, enforcing MSRV of `1.56.1`. [#601](https://github.com/paritytech/parity-common/pull/601)
+- Updated `impl-codec` to 0.6. [#623](https://github.com/paritytech/parity-common/pull/623)
+
+## [0.10.1] - 2021-07-02
+### Added
+- Implemented `parity_scale_codec::MaxEncodedLen` trait for `{U128, U256, U512}` and `{H128, H160, H256, H512}` types.
+
+## [0.10.0] - 2021-07-02
+### Added
+- Added `U128::full_mul` method. [#546](https://github.com/paritytech/parity-common/pull/546)
+### Breaking
+- Updated `scale-info` to 0.9. [#556](https://github.com/paritytech/parity-common/pull/556)
+### Removed
+- Removed `parity-scale-codec` direct dependency. [#556](https://github.com/paritytech/parity-common/pull/556)
+
+## [0.9.0] - 2021-01-27
+### Breaking
+- Updated `impl-codec` to 0.5. [#510](https://github.com/paritytech/parity-common/pull/510)
+- Updated `scale-info` to 0.5. [#510](https://github.com/paritytech/parity-common/pull/510)
+
+## [0.8.0] - 2021-01-05
 - Added `num-traits` feature. [#480](https://github.com/paritytech/parity-common/pull/480)
 ### Breaking
 - Updated `impl-rlp` to `rlp` 0.5. [#463](https://github.com/paritytech/parity-common/pull/463)

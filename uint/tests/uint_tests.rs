@@ -6,9 +6,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::convert::TryInto;
-use core::str::FromStr;
-use core::u64::MAX;
+use core::{convert::TryInto, str::FromStr, u64::MAX};
 use crunchy::unroll;
 use uint::{construct_uint, overflowing, FromDecStrErr};
 
@@ -46,8 +44,66 @@ fn const_matching_works() {
 	const ONE: U256 = U256([1, 0, 0, 0]);
 	match U256::zero() {
 		ONE => unreachable!(),
-		_ => {}
+		_ => {},
 	}
+}
+
+#[test]
+fn max() {
+	let max = U256::MAX;
+	assert_eq!(max.0, [0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF]);
+
+	let max = U512::MAX;
+	assert_eq!(
+		max.0,
+		[
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF
+		]
+	);
+}
+
+#[test]
+fn one() {
+	let one = U256::one();
+	assert_eq!(one.0, [1, 0, 0, 0]);
+
+	let one = U512::one();
+	assert_eq!(one.0, [1, 0, 0, 0, 0, 0, 0, 0]);
+
+	let any = U256::from(123456789);
+	assert_eq!(any * U256::one(), any);
+
+	let any = U512::from(123456789);
+	assert_eq!(any * U512::one(), any);
+}
+
+#[test]
+#[allow(deprecated)]
+fn max_value() {
+	let max = U256::max_value();
+	assert_eq!(max.0, [0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF]);
+
+	let max = U512::max_value();
+	assert_eq!(
+		max.0,
+		[
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF,
+			0xFFFFFFFFFFFFFFFF
+		]
+	);
 }
 
 #[test]
@@ -72,7 +128,7 @@ fn uint256_checked_ops() {
 	assert_eq!(U256::from(10).checked_pow(U256::from(3)), Some(U256::from(1000)));
 	assert_eq!(U256::from(10).checked_pow(U256::from(20)), Some(U256::exp10(20)));
 	assert_eq!(U256::from(2).checked_pow(U256::from(0x100)), None);
-	assert_eq!(U256::max_value().checked_pow(U256::from(2)), None);
+	assert_eq!(U256::MAX.checked_pow(U256::from(2)), None);
 
 	assert_eq!(a.checked_add(b), None);
 	assert_eq!(a.checked_add(a), Some(20.into()));
@@ -91,6 +147,17 @@ fn uint256_checked_ops() {
 
 	assert_eq!(a.checked_neg(), None);
 	assert_eq!(z.checked_neg(), Some(z));
+}
+
+#[test]
+fn uint256_abs_diff() {
+	let zero = U256::zero();
+	let max = U256::MAX;
+
+	assert_eq!(zero.abs_diff(zero), zero);
+	assert_eq!(max.abs_diff(max), zero);
+	assert_eq!(zero.abs_diff(max), max);
+	assert_eq!(max.abs_diff(zero), max);
 }
 
 #[test]
@@ -446,9 +513,11 @@ fn uint512_mul() {
 #[test]
 fn uint256_mul_overflow() {
 	assert_eq!(
-		U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap().overflowing_mul(
-			U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap()
-		),
+		U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+			.unwrap()
+			.overflowing_mul(
+				U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap()
+			),
 		(U256::from_str("1").unwrap(), true)
 	);
 }
@@ -457,8 +526,8 @@ fn uint256_mul_overflow() {
 #[should_panic]
 #[allow(unused_must_use)]
 fn uint256_mul_overflow_panic() {
-	U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap()
-		* U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap();
+	U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap() *
+		U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap();
 }
 
 #[test]
@@ -466,6 +535,39 @@ fn uint256_sub_overflow() {
 	assert_eq!(
 		U256::from_str("0").unwrap().overflowing_sub(U256::from_str("1").unwrap()),
 		(U256::from_str("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap(), true)
+	);
+}
+
+#[test]
+fn uint256_neg_overflow() {
+	assert_eq!(U256::from_str("0").unwrap().overflowing_neg(), (U256::from_str("0").unwrap(), false));
+	assert_eq!(
+		U256::from_str("1").unwrap().overflowing_neg(),
+		(U256::from_str("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap(), true)
+	);
+	assert_eq!(
+		U256::from_str("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+			.unwrap()
+			.overflowing_neg(),
+		(U256::from_str("1").unwrap(), true)
+	);
+	assert_eq!(
+		U256::from_str("8000000000000000000000000000000000000000000000000000000000000000")
+			.unwrap()
+			.overflowing_neg(),
+		(U256::from_str("8000000000000000000000000000000000000000000000000000000000000000").unwrap(), true)
+	);
+	assert_eq!(
+		U256::from_str("ffffffffffffffff0000000000000000ffffffffffffffff0000000000000000")
+			.unwrap()
+			.overflowing_neg(),
+		(U256::from_str("0000000000000000ffffffffffffffff00000000000000010000000000000000").unwrap(), true)
+	);
+	assert_eq!(
+		U256::from_str("0000000000000000ffffffffffffffff0000000000000000ffffffffffffffff")
+			.unwrap()
+			.overflowing_neg(),
+		(U256::from_str("ffffffffffffffff0000000000000000ffffffffffffffff0000000000000001").unwrap(), true)
 	);
 }
 
@@ -499,8 +601,8 @@ fn uint256_shl_words() {
 #[test]
 fn uint256_mul() {
 	assert_eq!(
-		U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap()
-			* U256::from_str("2").unwrap(),
+		U256::from_str("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap() *
+			U256::from_str("2").unwrap(),
 		U256::from_str("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe").unwrap()
 	);
 }
@@ -531,13 +633,27 @@ fn uint256_from_dec_str() {
 
 #[test]
 fn display_uint() {
-	let s = "12345678987654321023456789";
-	assert_eq!(format!("{}", U256::from_dec_str(s).unwrap()), s);
+	let s = U256::from_dec_str("12345678987654321023456789").unwrap();
+	assert_eq!(format!("{}", s), "12345678987654321023456789");
+	assert_eq!(format!("{:x}", s), "a364c995584f929f39615");
+	assert_eq!(format!("{:X}", s), "A364C995584F929F39615");
+	assert_eq!(format!("{:032}", s), "00000012345678987654321023456789");
+	assert_eq!(format!("{:032x}", s), "00000000000a364c995584f929f39615");
+	assert_eq!(format!("{:032X}", s), "00000000000A364C995584F929F39615");
+	assert_eq!(format!("{:#032x}", s), "0x000000000a364c995584f929f39615");
+	assert_eq!(format!("{:#032X}", s), "0x000000000A364C995584F929F39615");
 }
 
 #[test]
 fn display_uint_zero() {
-	assert_eq!(format!("{}", U256::from(0)), "0");
+	let s = U256::from(0);
+	assert_eq!(format!("{}", s), "0");
+	assert_eq!(format!("{:x}", s), "0");
+	assert_eq!(format!("{:X}", s), "0");
+	assert_eq!(format!("{:032x}", s), "00000000000000000000000000000000");
+	assert_eq!(format!("{:032X}", s), "00000000000000000000000000000000");
+	assert_eq!(format!("{:#032x}", s), "0x000000000000000000000000000000");
+	assert_eq!(format!("{:#032X}", s), "0x000000000000000000000000000000");
 }
 
 #[test]
@@ -1019,6 +1135,15 @@ fn leading_zeros() {
 }
 
 #[test]
+fn issue_507_roundtrip() {
+	let mut b32 = <[u8; 32]>::default();
+	let a = U256::from(10);
+	a.to_little_endian(&mut b32);
+	let b = U256::from_little_endian(&b32[..]);
+	assert_eq!(a, b);
+}
+
+#[test]
 fn trailing_zeros() {
 	assert_eq!(U256::from("1adbdd6bd6ff027485484b97f8a6a4c7129756dd100000000000000000000000").trailing_zeros(), 92);
 	assert_eq!(U256::from("1adbdd6bd6ff027485484b97f8a6a4c7129756dd10000000000000000000000f").trailing_zeros(), 0);
@@ -1128,6 +1253,22 @@ pub mod laws {
 						TestResult::from_bool(
 							(x * (y + z) == (x * y + x * z)) && (((x + y) * z) == (x * z + y * z))
 						)
+					}
+				}
+
+				quickcheck! {
+					fn isqrt(x: $uint_ty) -> TestResult {
+						let s = x.integer_sqrt();
+						let higher = s + 1;
+						if let Some(y) = higher.checked_mul(higher) {
+							TestResult::from_bool(
+								(s * s <= x) && (y > x)
+							)
+						} else {
+							TestResult::from_bool(
+								s * s <= x
+							)
+						}
 					}
 				}
 

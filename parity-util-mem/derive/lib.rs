@@ -17,7 +17,6 @@ extern crate syn;
 #[macro_use]
 extern crate synstructure;
 
-#[cfg(not(test))]
 decl_derive!([MallocSizeOf, attributes(ignore_malloc_size_of)] => malloc_size_of_derive);
 
 fn malloc_size_of_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
@@ -30,7 +29,7 @@ fn malloc_size_of_derive(s: synstructure::Structure) -> proc_macro2::TokenStream
 					"#[ignore_malloc_size_of] should have an explanation, \
 					 e.g. #[ignore_malloc_size_of = \"because reasons\"]"
 				);
-			}
+			},
 			syn::Meta::NameValue(syn::MetaNameValue { ref path, .. }) if path.is_ident("ignore_malloc_size_of") => true,
 			_ => false,
 		});
@@ -55,7 +54,9 @@ fn malloc_size_of_derive(s: synstructure::Structure) -> proc_macro2::TokenStream
 	let mut where_clause = where_clause.unwrap_or(&parse_quote!(where)).clone();
 	for param in ast.generics.type_params() {
 		let ident = &param.ident;
-		where_clause.predicates.push(parse_quote!(#ident: parity_util_mem::MallocSizeOf));
+		where_clause
+			.predicates
+			.push(parse_quote!(#ident: parity_util_mem::MallocSizeOf));
 	}
 
 	let tokens = quote! {

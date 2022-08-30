@@ -6,7 +6,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use kvdb::{DBOp, DBTransaction, DBValue, KeyValueDB};
+use kvdb::{DBKeyValue, DBOp, DBTransaction, DBValue, KeyValueDB};
 use parity_util_mem::MallocSizeOf;
 use parking_lot::RwLock;
 use std::{
@@ -33,22 +33,24 @@ pub fn create(num_cols: u32) -> InMemory {
 	InMemory { columns: RwLock::new(cols) }
 }
 
+fn invalid_column(col: u32) -> io::Error {
+	io::Error::new(io::ErrorKind::Other, format!("No such column family: {:?}", col))
+}
+
 impl KeyValueDB for InMemory {
 	fn get(&self, col: u32, key: &[u8]) -> io::Result<Option<DBValue>> {
 		let columns = self.columns.read();
 		match columns.get(&col) {
-			None => Err(io::Error::new(io::ErrorKind::Other, format!("No such column family: {:?}", col))),
+			None => Err(invalid_column(col)),
 			Some(map) => Ok(map.get(key).cloned()),
 		}
 	}
 
-	fn get_by_prefix(&self, col: u32, prefix: &[u8]) -> Option<Box<[u8]>> {
+	fn get_by_prefix(&self, col: u32, prefix: &[u8]) -> io::Result<Option<DBValue>> {
 		let columns = self.columns.read();
 		match columns.get(&col) {
-			None => None,
-			Some(map) => {
-				map.iter().find(|&(ref k, _)| k.starts_with(prefix)).map(|(_, v)| v.to_vec().into_boxed_slice())
-			}
+			None => Err(invalid_column(col)),
+			Some(map) => Ok(map.iter().find(|&(ref k, _)| k.starts_with(prefix)).map(|(_, v)| v.to_vec())),
 		}
 	}
 
@@ -57,17 +59,15 @@ impl KeyValueDB for InMemory {
 		let ops = transaction.ops;
 		for op in ops {
 			match op {
-				DBOp::Insert { col, key, value } => {
+				DBOp::Insert { col, key, value } =>
 					if let Some(col) = columns.get_mut(&col) {
 						col.insert(key.into_vec(), value);
-					}
-				}
-				DBOp::Delete { col, key } => {
+					},
+				DBOp::Delete { col, key } =>
 					if let Some(col) = columns.get_mut(&col) {
 						col.remove(&*key);
-					}
-				}
-				DBOp::DeletePrefix { col, prefix } => {
+					},
+				DBOp::DeletePrefix { col, prefix } =>
 					if let Some(col) = columns.get_mut(&col) {
 						use std::ops::Bound;
 						if prefix.is_empty() {
@@ -75,7 +75,9 @@ impl KeyValueDB for InMemory {
 						} else {
 							let start_range = Bound::Included(prefix.to_vec());
 							let keys: Vec<_> = if let Some(end_range) = kvdb::end_prefix(&prefix[..]) {
-								col.range((start_range, Bound::Excluded(end_range))).map(|(k, _)| k.clone()).collect()
+								col.range((start_range, Bound::Excluded(end_range)))
+									.map(|(k, _)| k.clone())
+									.collect()
 							} else {
 								col.range((start_range, Bound::Unbounded)).map(|(k, _)| k.clone()).collect()
 							};
@@ -83,20 +85,19 @@ impl KeyValueDB for InMemory {
 								col.remove(&key[..]);
 							}
 						}
-					}
-				}
+					},
 			}
 		}
 		Ok(())
 	}
 
-	fn iter<'a>(&'a self, col: u32) -> Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a> {
+	fn iter<'a>(&'a self, col: u32) -> Box<dyn Iterator<Item = io::Result<DBKeyValue>> + 'a> {
 		match self.columns.read().get(&col) {
 			Some(map) => Box::new(
 				// TODO: worth optimizing at all?
-				map.clone().into_iter().map(|(k, v)| (k.into_boxed_slice(), v.into_boxed_slice())),
+				map.clone().into_iter().map(|(k, v)| Ok((k.into(), v))),
 			),
-			None => Box::new(None.into_iter()),
+			None => Box::new(std::iter::once(Err(invalid_column(col)))),
 		}
 	}
 
@@ -104,20 +105,16 @@ impl KeyValueDB for InMemory {
 		&'a self,
 		col: u32,
 		prefix: &'a [u8],
-	) -> Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a> {
+	) -> Box<dyn Iterator<Item = io::Result<DBKeyValue>> + 'a> {
 		match self.columns.read().get(&col) {
 			Some(map) => Box::new(
 				map.clone()
 					.into_iter()
 					.filter(move |&(ref k, _)| k.starts_with(prefix))
-					.map(|(k, v)| (k.into_boxed_slice(), v.into_boxed_slice())),
+					.map(|(k, v)| Ok((k.into(), v))),
 			),
-			None => Box::new(None.into_iter()),
+			None => Box::new(std::iter::once(Err(invalid_column(col)))),
 		}
-	}
-
-	fn restore(&self, _new_db: &str) -> io::Result<()> {
-		Err(io::Error::new(io::ErrorKind::Other, "Attempted to restore in-memory database"))
 	}
 }
 
