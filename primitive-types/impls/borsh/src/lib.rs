@@ -34,7 +34,7 @@ macro_rules! impl_uint_borsh {
 					return Err($crate::borsh::maybestd::io::Error::new(
 						$crate::borsh::maybestd::io::ErrorKind::InvalidInput,
 						$crate::ERROR_UNEXPECTED_LENGTH_OF_INPUT,
-					));
+					))
 				}
 				let res = Self::from_little_endian(&buf[..($len * 8)]);
 				*buf = &buf[($len * 8)..];
@@ -82,7 +82,7 @@ macro_rules! impl_fixed_hash_borsh {
 					return Err($crate::borsh::maybestd::io::Error::new(
 						$crate::borsh::maybestd::io::ErrorKind::InvalidInput,
 						$crate::ERROR_UNEXPECTED_LENGTH_OF_INPUT,
-					));
+					))
 				}
 				let res = Self::from_slice(&buf[..$len]);
 				*buf = &buf[$len..];
