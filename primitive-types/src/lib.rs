@@ -123,8 +123,10 @@ mod rlp {
 	impl_fixed_hash_rlp!(H512, 64);
 }
 
+#[cfg(feature = "impl-borsh")]
 mod borsh {
 	use super::*;
+	use fixed_hash::alloc_::string::ToString;
 	use impl_borsh::{impl_fixed_hash_borsh, impl_uint_borsh};
 
 	impl_uint_borsh!(U128, 2);
