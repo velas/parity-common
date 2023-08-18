@@ -19,7 +19,7 @@ jobs:
           override: true
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.0.0
+        uses: Swatinem/rust-cache@dd05243424bd5c0e585e4b55eb2d7615cdd32f1f # v2.5.1
 
       - uses: actions-rs/cargo@v1
         with:
@@ -43,7 +43,7 @@ jobs:
           override: true
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.0.0
+        uses: Swatinem/rust-cache@dd05243424bd5c0e585e4b55eb2d7615cdd32f1f # v2.5.1
 
       - run: rustup target add wasm32-unknown-unknown
 
@@ -98,6 +98,24 @@ jobs:
           command: test
           args: -p ethbloom --all-features
 
+      - name: Test bounded-collections no_std
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: -p bounded-collections --no-default-features
+
+      - name: Test bounded-collections no_std,serde
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: -p bounded-collections --no-default-features --features=serde
+
+      - name: Test bounded-collections all-features
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: -p bounded-collections --all-features
+
       - name: Test uint on bigendian
         if: runner.os == 'Linux'
         uses: actions-rs/cargo@v1
@@ -138,7 +156,7 @@ jobs:
           override: true
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.0.0
+        uses: Swatinem/rust-cache@dd05243424bd5c0e585e4b55eb2d7615cdd32f1f # v2.5.1
 
       - uses: actions-rs/cargo@v1
         with:

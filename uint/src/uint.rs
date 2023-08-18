@@ -128,7 +128,7 @@ impl From<FromHexError> for FromStrRadixErr {
 }
 
 /// Conversion from decimal string error
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FromDecStrErr {
 	/// Char not from range 0-9
 	InvalidCharacter,
@@ -732,7 +732,7 @@ macro_rules! construct_uint {
 				r
 			}
 
-			/// Return specific byte.
+			/// Return specific byte. Byte 0 is the least significant value (ie~ little endian).
 			///
 			/// # Panics
 			///
@@ -1001,13 +1001,13 @@ macro_rules! construct_uint {
 				while n > u_one {
 					if is_even(&n) {
 						x = x * x;
-						n = n >> 1usize;
+						n >>= 1usize;
 					} else {
 						y = x * y;
 						x = x * x;
 						// to reduce odd number by 1 we should just clear the last bit
-						n.0[$n_words-1] = n.0[$n_words-1] & ((!0u64)>>1);
-						n = n >> 1usize;
+						n.0[$n_words-1] &= (!0u64)>>1;
+						n >>= 1usize;
 					}
 				}
 				x * y
@@ -1028,7 +1028,7 @@ macro_rules! construct_uint {
 				while n > u_one {
 					if is_even(&n) {
 						x = $crate::overflowing!(x.overflowing_mul(x), overflow);
-						n = n >> 1usize;
+						n >>= 1usize;
 					} else {
 						y = $crate::overflowing!(x.overflowing_mul(y), overflow);
 						x = $crate::overflowing!(x.overflowing_mul(x), overflow);
@@ -1508,6 +1508,12 @@ macro_rules! construct_uint {
 			}
 		}
 
+		impl $crate::core_::ops::BitAndAssign<$name> for $name {
+			fn bitand_assign(&mut self, rhs: $name) {
+				*self = *self & rhs;
+			}
+		}
+
 		impl $crate::core_::ops::BitXor<$name> for $name {
 			type Output = $name;
 
@@ -1523,6 +1529,12 @@ macro_rules! construct_uint {
 			}
 		}
 
+		impl $crate::core_::ops::BitXorAssign<$name> for $name {
+			fn bitxor_assign(&mut self, rhs: $name) {
+				*self = *self ^ rhs;
+			}
+		}
+
 		impl $crate::core_::ops::BitOr<$name> for $name {
 			type Output = $name;
 
@@ -1535,6 +1547,12 @@ macro_rules! construct_uint {
 					ret[i] = arr1[i] | arr2[i];
 				}
 				$name(ret)
+			}
+		}
+
+		impl $crate::core_::ops::BitOrAssign<$name> for $name {
+			fn bitor_assign(&mut self, rhs: $name) {
+				*self = *self | rhs;
 			}
 		}
 
@@ -1660,7 +1678,7 @@ macro_rules! construct_uint {
 				loop {
 					let digit = (current % ten).low_u64() as u8;
 					buf[i] = digit + b'0';
-					current = current / ten;
+					current /= ten;
 					if current.is_zero() {
 						break;
 					}
@@ -1741,28 +1759,33 @@ macro_rules! construct_uint {
 #[doc(hidden)]
 macro_rules! impl_quickcheck_arbitrary_for_uint {
 	($uint: ty, $n_bytes: tt) => {
-		impl $crate::qc::Arbitrary for $uint {
-			fn arbitrary<G: $crate::qc::Gen>(g: &mut G) -> Self {
-				let mut res = [0u8; $n_bytes];
-
-				use $crate::rand07::Rng;
-				let p: f64 = $crate::rand07::rngs::OsRng.gen();
+		impl $crate::quickcheck::Arbitrary for $uint {
+			fn arbitrary(g: &mut $crate::quickcheck::Gen) -> Self {
+				let p = usize::arbitrary(g) % 100;
 				// make it more likely to generate smaller numbers that
 				// don't use up the full $n_bytes
 				let range =
 					// 10% chance to generate number that uses up to $n_bytes
-					if p < 0.1 {
+					if p < 10 {
 						$n_bytes
 					// 10% chance to generate number that uses up to $n_bytes / 2
-					} else if p < 0.2 {
+					} else if p < 20 {
 						$n_bytes / 2
 					// 80% chance to generate number that uses up to $n_bytes / 5
 					} else {
 						$n_bytes / 5
 					};
 
-				let size = g.gen_range(0, range);
-				g.fill_bytes(&mut res[..size]);
+				let range = $crate::core_::cmp::max(range, 1);
+				let size: usize = usize::arbitrary(g) % range;
+
+				let res: [u8; $n_bytes] = $crate::core_::array::from_fn(|i| {
+					if i > size {
+						0
+					} else {
+						u8::arbitrary(g)
+					}
+				});
 
 				res.as_ref().into()
 			}

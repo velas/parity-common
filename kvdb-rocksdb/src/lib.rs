@@ -12,18 +12,15 @@ mod stats;
 use std::{
 	cmp,
 	collections::HashMap,
-	error, fs, io,
+	error, io,
 	path::{Path, PathBuf},
-	result,
 };
 
-use parity_util_mem::MallocSizeOf;
 use rocksdb::{
-	BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, Error, Options, ReadOptions, WriteBatch, WriteOptions, DB,
+	BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, Options, ReadOptions, WriteBatch, WriteOptions, DB,
 };
 
 use kvdb::{DBKeyValue, DBOp, DBTransaction, DBValue, KeyValueDB};
-use log::warn;
 
 #[cfg(target_os = "linux")]
 use regex::Regex;
@@ -253,26 +250,6 @@ struct DBAndColumns {
 	column_names: Vec<String>,
 }
 
-impl MallocSizeOf for DBAndColumns {
-	fn size_of(&self, ops: &mut parity_util_mem::MallocSizeOfOps) -> usize {
-		let mut total = self.column_names.size_of(ops)
-			// we have at least one column always, so we can call property on it
-			+ self.cf(0).map(|cf| self.db
-				.property_int_value_cf(cf, "rocksdb.block-cache-usage")
-				.unwrap_or(Some(0))
-				.map(|x| x as usize)
-				.unwrap_or(0)
-			).unwrap_or(0);
-
-		for v in 0..self.column_names.len() {
-			total += self.static_property_or_warn(v, "rocksdb.estimate-table-readers-mem");
-			total += self.static_property_or_warn(v, "rocksdb.cur-size-all-mem-tables");
-		}
-
-		total
-	}
-}
-
 impl DBAndColumns {
 	fn cf(&self, i: usize) -> io::Result<&ColumnFamily> {
 		let name = self.column_names.get(i).ok_or_else(|| invalid_column(i as u32))?;
@@ -280,61 +257,17 @@ impl DBAndColumns {
 			.cf_handle(&name)
 			.ok_or_else(|| other_io_err(format!("invalid column name: {name}")))
 	}
-
-	fn static_property_or_warn(&self, col: usize, prop: &str) -> usize {
-		let cf = match self.cf(col) {
-			Ok(cf) => cf,
-			Err(_) => {
-				warn!("RocksDB column index out of range: {}", col);
-				return 0
-			},
-		};
-		match self.db.property_int_value_cf(cf, prop) {
-			Ok(Some(v)) => v as usize,
-			_ => {
-				warn!("Cannot read expected static property of RocksDb database: {}", prop);
-				0
-			},
-		}
-	}
 }
 
 /// Key-Value database.
-#[derive(MallocSizeOf)]
 pub struct Database {
 	inner: DBAndColumns,
-	#[ignore_malloc_size_of = "insignificant"]
 	config: DatabaseConfig,
-	#[ignore_malloc_size_of = "insignificant"]
-	path: PathBuf,
-	#[ignore_malloc_size_of = "insignificant"]
 	opts: Options,
-	#[ignore_malloc_size_of = "insignificant"]
 	write_opts: WriteOptions,
-	#[ignore_malloc_size_of = "insignificant"]
 	read_opts: ReadOptions,
-	#[ignore_malloc_size_of = "insignificant"]
 	block_opts: BlockBasedOptions,
-	#[ignore_malloc_size_of = "insignificant"]
 	stats: stats::RunningDbStats,
-}
-
-#[inline]
-fn check_for_corruption<T, P: AsRef<Path>>(path: P, res: result::Result<T, Error>) -> io::Result<T> {
-	if let Err(ref s) = res {
-		if is_corrupted(s) {
-			warn!("DB corrupted: {}. Repair will be triggered on next restart", s);
-			let _ = fs::File::create(path.as_ref().join(Database::CORRUPTION_FILE_NAME));
-		}
-	}
-
-	res.map_err(other_io_err)
-}
-
-fn is_corrupted(err: &Error) -> bool {
-	err.as_ref().starts_with("Corruption:") ||
-		err.as_ref()
-			.starts_with("Invalid argument: You have to open all column families")
 }
 
 /// Generate the options for RocksDB, based on the given `DatabaseConfig`.
@@ -381,7 +314,7 @@ fn generate_block_based_options(config: &DatabaseConfig) -> io::Result<BlockBase
 	if cache_size == 0 {
 		block_opts.disable_cache()
 	} else {
-		let cache = rocksdb::Cache::new_lru_cache(cache_size).map_err(other_io_err)?;
+		let cache = rocksdb::Cache::new_lru_cache(cache_size);
 		block_opts.set_block_cache(&cache);
 		// "index and filter blocks will be stored in block cache, together with all other data blocks."
 		// See: https://github.com/facebook/rocksdb/wiki/Memory-usage-in-RocksDB#indexes-and-filter-blocks
@@ -395,8 +328,6 @@ fn generate_block_based_options(config: &DatabaseConfig) -> io::Result<BlockBase
 }
 
 impl Database {
-	const CORRUPTION_FILE_NAME: &'static str = "CORRUPTED";
-
 	/// Open database file.
 	///
 	/// # Safety
@@ -407,14 +338,6 @@ impl Database {
 
 		let opts = generate_options(config);
 		let block_opts = generate_block_based_options(config)?;
-
-		// attempt database repair if it has been previously marked as corrupted
-		let db_corrupted = path.as_ref().join(Database::CORRUPTION_FILE_NAME);
-		if db_corrupted.exists() {
-			warn!("DB has been previously marked as corrupted, attempting repair");
-			DB::repair(&opts, path.as_ref()).map_err(other_io_err)?;
-			fs::remove_file(db_corrupted)?;
-		}
 
 		let column_names: Vec<_> = (0..config.columns).map(|c| format!("col{}", c)).collect();
 		let write_opts = WriteOptions::default();
@@ -430,7 +353,6 @@ impl Database {
 		Ok(Database {
 			inner: DBAndColumns { db, column_names },
 			config: config.clone(),
-			path: path.as_ref().to_owned(),
 			opts,
 			read_opts,
 			write_opts,
@@ -471,18 +393,6 @@ impl Database {
 
 		Ok(match db {
 			Ok(db) => db,
-			Err(ref s) if is_corrupted(s) => {
-				warn!("DB corrupted: {}, attempting repair", s);
-				DB::repair(&opts, path.as_ref()).map_err(other_io_err)?;
-
-				let cf_descriptors: Vec<_> = (0..config.columns)
-					.map(|i| {
-						ColumnFamilyDescriptor::new(column_names[i as usize], config.column_config(&block_opts, i))
-					})
-					.collect();
-
-				DB::open_cf_descriptors(&opts, path, cf_descriptors).map_err(other_io_err)?
-			},
 			Err(s) => return Err(other_io_err(s)),
 		})
 	}
@@ -499,11 +409,6 @@ impl Database {
 
 		Ok(match db {
 			Ok(db) => db,
-			Err(ref s) if is_corrupted(s) => {
-				warn!("DB corrupted: {}, attempting repair", s);
-				DB::repair(&opts, path.as_ref()).map_err(other_io_err)?;
-				DB::open_cf_as_secondary(&opts, path, secondary_path, column_names).map_err(other_io_err)?
-			},
 			Err(s) => return Err(other_io_err(s)),
 		})
 	}
@@ -555,7 +460,7 @@ impl Database {
 		}
 		self.stats.tally_bytes_written(stats_total_bytes as u64);
 
-		check_for_corruption(&self.path, cfs.db.write_opt(batch, &self.write_opts))
+		cfs.db.write_opt(batch, &self.write_opts).map_err(other_io_err)
 	}
 
 	/// Get value by key.
@@ -833,33 +738,6 @@ mod tests {
 	}
 
 	#[test]
-	fn mem_tables_size() {
-		let tempdir = TempfileBuilder::new().prefix("").tempdir().unwrap();
-
-		let config = DatabaseConfig {
-			max_open_files: 512,
-			memory_budget: HashMap::new(),
-			compaction: CompactionProfile::default(),
-			columns: 11,
-			keep_log_file_num: 1,
-			enable_statistics: false,
-			secondary: None,
-			max_total_wal_size: None,
-			create_if_missing: true,
-		};
-
-		let db = Database::open(&config, tempdir.path().to_str().unwrap()).unwrap();
-
-		let mut batch = db.transaction();
-		for i in 0u32..10000u32 {
-			batch.put(i / 1000 + 1, &i.to_le_bytes(), &(i * 17).to_le_bytes());
-		}
-		db.write(batch).unwrap();
-
-		assert!(db.inner.static_property_or_warn(0, "rocksdb.cur-size-all-mem-tables") > 512);
-	}
-
-	#[test]
 	#[cfg(target_os = "linux")]
 	fn df_to_rotational() {
 		use std::path::PathBuf;
@@ -1007,12 +885,13 @@ rocksdb.db.get.micros P50 : 2.000000 P95 : 3.000000 P99 : 4.000000 P100 : 5.0000
 			.tempdir()
 			.expect("the OS can create tmp dirs");
 		let db = Database::open(&cfg, db_path.path()).expect("can open a db");
+		let statistics = db.get_statistics();
+		assert!(statistics.contains_key("block.cache.hit"));
+		drop(db);
+
 		let mut rocksdb_log = std::fs::File::open(format!("{}/LOG", db_path.path().to_str().unwrap()))
 			.expect("rocksdb creates a LOG file");
 		let mut settings = String::new();
-		let statistics = db.get_statistics();
-		assert!(statistics.contains_key("block.cache.hit"));
-
 		rocksdb_log.read_to_string(&mut settings).unwrap();
 		// Check column count
 		assert!(settings.contains("Options for column family [default]"), "no default col");

@@ -43,6 +43,7 @@ macro_rules! construct_fixed_hash {
 	( $(#[$attr:meta])* $visibility:vis struct $name:ident ( $n_bytes:expr ); ) => {
 		#[repr(C)]
 		$(#[$attr])*
+		#[derive(PartialEq, Eq)]
 		$visibility struct $name (pub [u8; $n_bytes]);
 
 		impl From<[u8; $n_bytes]> for $name {
@@ -257,13 +258,9 @@ macro_rules! construct_fixed_hash {
 		#[cfg_attr(feature = "dev", allow(expl_impl_clone_on_copy))]
 		impl $crate::core_::clone::Clone for $name {
 			fn clone(&self) -> $name {
-				let mut ret = $name::zero();
-				ret.0.copy_from_slice(&self.0);
-				ret
+				*self
 			}
 		}
-
-		impl $crate::core_::cmp::Eq for $name {}
 
 		impl $crate::core_::cmp::PartialOrd for $name {
 			fn partial_cmp(&self, other: &Self) -> Option<$crate::core_::cmp::Ordering> {
@@ -531,13 +528,6 @@ macro_rules! impl_rand_for_fixed_hash {
 #[doc(hidden)]
 macro_rules! impl_cmp_for_fixed_hash {
 	( $name:ident ) => {
-		impl $crate::core_::cmp::PartialEq for $name {
-			#[inline]
-			fn eq(&self, other: &Self) -> bool {
-				self.as_bytes() == other.as_bytes()
-			}
-		}
-
 		impl $crate::core_::cmp::Ord for $name {
 			#[inline]
 			fn cmp(&self, other: &Self) -> $crate::core_::cmp::Ordering {
@@ -629,9 +619,8 @@ macro_rules! impl_quickcheck_for_fixed_hash {
 macro_rules! impl_quickcheck_for_fixed_hash {
 	( $name:ident ) => {
 		impl $crate::quickcheck::Arbitrary for $name {
-			fn arbitrary<G: $crate::quickcheck::Gen>(g: &mut G) -> Self {
-				let mut res = [0u8; $crate::core_::mem::size_of::<Self>()];
-				g.fill_bytes(&mut res[..Self::len_bytes()]);
+			fn arbitrary(g: &mut $crate::quickcheck::Gen) -> Self {
+				let res: [u8; Self::len_bytes()] = $crate::core_::array::from_fn(|_| u8::arbitrary(g));
 				Self::from(res)
 			}
 		}
