@@ -9,4 +9,4 @@ default = ["std"]
 std = ["borsh/std"]
 
 [dependencies]
-borsh = { version = "0.9.3", default-features = false }
+borsh = { version = "0.10.3", default-features = false }

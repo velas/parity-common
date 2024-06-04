@@ -40,6 +40,13 @@ macro_rules! impl_uint_borsh {
 				*buf = &buf[($len * 8)..];
 				Ok(res)
 			}
+
+			#[inline]
+			fn deserialize_reader<R: ::std::io::Read>(reader: &mut R) -> $crate::borsh::maybestd::io::Result<Self> {
+				let mut bytes = [0u8; $len * 8];
+				reader.read_exact(&mut bytes)?;
+				Ok(Self::from_little_endian(&bytes))
+			}
 		}
 
 		impl $crate::borsh::BorshSchema for $name {
@@ -87,6 +94,13 @@ macro_rules! impl_fixed_hash_borsh {
 				let res = Self::from_slice(&buf[..$len]);
 				*buf = &buf[$len..];
 				Ok(res)
+			}
+
+			#[inline]
+			fn deserialize_reader<R: ::std::io::Read>(reader: &mut R) -> $crate::borsh::maybestd::io::Result<Self> {
+				let mut buf = [0u8; $len];
+				reader.read_exact(&mut buf)?;
+				Ok(Self::from_slice(&buf))
 			}
 		}
 
