@@ -39,7 +39,7 @@ macro_rules! impl_uint_borsh {
 			}
 			#[inline]
 			fn deserialize_reader<R: $crate::borsh::io::Read>(reader: &mut R) -> $crate::borsh::io::Result<Self> {
-				unimplemented!("Implement `deserialize_reader` please");
+				$name::try_from_reader(reader)
 			}
 		}
 
@@ -88,7 +88,7 @@ macro_rules! impl_fixed_hash_borsh {
 			}
 			#[inline]
 			fn deserialize_reader<R: $crate::borsh::io::Read>(reader: &mut R) -> $crate::borsh::io::Result<Self> {
-				unimplemented!("Implement `deserialize_reader` please");
+				$name::try_from_reader(reader)
 			}
 		}
 
